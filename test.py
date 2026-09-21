@@ -1,26 +1,16 @@
-import string
+from app.audio.input import Microphone 
+from app.llm.llm import LLM 
+from app.stt.whisper import WhisperSTT 
 
-from app.audio.input import Microphone
-from app.stt.whisper import WhisperSTT
-def main():
-    microphone = Microphone()
-    whisper = WhisperSTT()
+microphone = Microphone()
+llm = LLM()
+whisper=WhisperSTT()
 
-    while True:
-        audio = microphone.record_until_silence()
-        text = whisper.transcribe(audio)
 
-        print("YOU:" , text)
-
-        command = text.lower().strip()
-        command = command.translate(
-            str.maketrans("", "", string.punctuation)
-        )
-        if command in ['exit','quit','stop']:
-            print("Assistant stopped ")
-            break
+text_numbers = microphone.record_until_silence()
+text = whisper.transcribe(text_numbers)
+answer = llm(text)
+print(answer)
 
 
 
-if __name__ =="__main__":
-    main()
