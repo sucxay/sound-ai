@@ -8,7 +8,7 @@ load_dotenv()
 class LLM:
     def __init__(self):
         self.model = ChatGroq(
-            model_name ="Llama 3.1 8B ",
+            model_name ="openai/gpt-oss-120b",
             api_key=os.getenv("GROQ_API_KEY"),
             temperature=0.7
         )

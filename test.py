@@ -9,7 +9,7 @@ whisper=WhisperSTT()
 
 text_numbers = microphone.record_until_silence()
 text = whisper.transcribe(text_numbers)
-answer = llm(text)
+answer = llm.generate_answer(text)
 print(answer)
 
 
