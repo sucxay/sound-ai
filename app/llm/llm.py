@@ -13,10 +13,12 @@ class LLM:
             temperature=0.7
         )
 
-    def generate_answer(self,question:str)-> str:
-        text = self.model.invoke(question)
+    def generate_answer(self , text:str):
+        for chunk in self.model.stream(text):
+            if chunk.content:
+                yield chunk.content
 
-        return text.content
+                
 
 
 

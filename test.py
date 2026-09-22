@@ -1,28 +1,54 @@
 from app.llm.llm import LLM
-from app.stt.whisper import WhisperSTT
+from app.tts.tts import TTS
 from app.audio.input import Microphone
-from app.tts.tts import TTS 
+from app.stt.whisper import WhisperSTT
 
 
+microphone = Microphone(
+    silence_duration=400
+)
 
-microphone = Microphone()
-whisper = WhisperSTT()
 llm = LLM()
 tts = TTS()
+whisper = WhisperSTT()
+
 
 while True:
 
-    audio = microphone.record_until_silence()
+    audio_numbers = microphone.record_until_silence()
 
-    text = whisper.transcribe(audio)
+    if len(audio_numbers) == 0:
+        continue
 
-    print("You:", text)
+    text = whisper.transcribe(audio_numbers)
+
+    if not text:
+        continue
+
+    print("YOU:", text)
 
     if text.lower().strip() == "exit":
+        print("Goodbye!")
         break
 
-    response = llm.generate_answer(text)
+    print("ASSISTANT:", end=" ", flush=True)
 
-    print("Assistant:", response)
+    buffer = ""
 
-    tts.speak(response)
+    for chunk in llm.generate_answer(text):
+
+        print(chunk, end="", flush=True)
+
+        buffer += chunk
+
+        if (
+            len(buffer) >= 40
+            and buffer.endswith((" ", ".", ",", "?", "!"))
+        ):
+            tts.speak(buffer)
+            buffer = ""
+
+    if buffer:
+        tts.speak(buffer)
+
+    print()
