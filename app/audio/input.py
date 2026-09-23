@@ -14,13 +14,14 @@ class Microphone:
         self,
         sample_rate: int = 16000,
         frame_duration: int = 30,
-        silence_duration: int = 400,
-        pre_roll_duration: int = 600,
+        silence_duration: int = 800,   # ms of silence before stopping; 800ms is a good balance
+        pre_roll_duration: int = 300,  # ms of audio kept before speech starts to avoid clipping
+        vad_aggressiveness: int = 1,   # 0=least aggressive, 3=most; lower = less likely to cut off quiet speech
     ):
-        self.sample_rate = sample_rate 
+        self.sample_rate = sample_rate
         self.frame_duration = frame_duration
         self.frame_size = int(sample_rate * frame_duration / 1000)
-        self.vad = webrtcvad.Vad(2)
+        self.vad = webrtcvad.Vad(vad_aggressiveness)
         self.silence_frames = int(silence_duration / frame_duration)
         self.pre_roll_frames = int(pre_roll_duration / frame_duration)
 
