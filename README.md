@@ -116,10 +116,7 @@ whisper-bar &
   - `⏸️` — Paused
 * **Menu Controls:** Click the icon to Pause/Resume, view the last query heard, open the project folder, or Quit.
 
-#### Launch Automatically on Mac Startup:
-1. Open **System Settings** > **General** > **Login Items**.
-2. Click **+** under *Open at Login*.
-3. Press `Cmd + Shift + G`, paste `/Users/suchayjoshi/Desktop/voice_assistant/run_gui.py`, and click **Add**.
+
 
 ---
 
