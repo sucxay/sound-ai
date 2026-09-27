@@ -1,88 +1,142 @@
 # Voice Assistant
 
-A Python-based voice assistant that listens to microphone input, transcribes speech, sends the text to a language model, and speaks the response back aloud.
+A hands-free, Python-powered voice assistant designed for macOS that listens to microphone input, transcribes speech, invokes system automation tools, queries high-speed LLMs (Groq / Gemini), and speaks responses aloud via local TTS.
 
-This project combines:
-- microphone capture and voice activity detection
-- speech-to-text via Faster Whisper
-- LLM responses through Groq
-- text-to-speech playback using a local TTS model
+Available as both a **global Terminal CLI command (`whisper`)** and a **native macOS Menu Bar app (`whisper-bar`)**.
+
+---
 
 ## Features
 
-- Real-time microphone recording with silence detection
-- Automatic speech segmentation using WebRTC VAD
-- Whisper-based transcription
-- Groq-powered conversational responses
-- Audio playback for assistant replies
-- Simple loop-based CLI interaction
+- **Global Terminal Command (`whisper`)**: Start the voice assistant from any directory in your terminal.
+- **Native macOS Menu Bar App (`whisper-bar`)**: Sits in your top menu bar with live visual status icons (`🎙️` listening, `🧠` transcribing, `🔊` speaking, `⏸️` paused) and pause/resume controls.
+- **macOS System Automation Tools**:
+  - **App Controls**: Open and close any installed Mac application (`open_app`, `close_app`).
+  - **Browser Automation**: Open URLs in default browser (`open_website`).
+  - **Apple Music Control**: Play/pause, next/previous tracks, play specific songs and albums (`play_music`, `play_song`, `play_album`).
+- **Real-Time Voice Pipeline**:
+  - WebRTC VAD voice activity capture with silence detection.
+  - Offline, high-accuracy STT via Faster-Whisper.
+  - Groq primary model (`openai/gpt-oss-120b`) with automatic Gemini (`gemini-3.6-flash`) fallback.
+  - Local low-latency voice synthesis via Pocket-TTS.
+
+---
 
 ## Project Structure
 
-- [app/audio/input.py](app/audio/input.py) — microphone input and VAD-based recording logic
-- [app/stt/whisper.py](app/stt/whisper.py) — speech-to-text transcription using Whisper
-- [app/llm/llm.py](app/llm/llm.py) — Groq LLM integration
-- [app/tts/tts.py](app/tts/tts.py) — text-to-speech generation and playback
-- [run.py](run.py) — main assistant loop
-- [test.py](test.py) — basic usage/test script
-- [requirements.txt](requirements.txt) — Python dependencies
-- [main.py](main.py) — placeholder entry point
+```text
+├── whisper                       # Global CLI executable entry point
+├── run_gui.py                    # Menu Bar app launcher
+├── app/
+│   ├── audio/
+│   │   ├── input.py              # Microphone capture & WebRTC VAD
+│   │   └── microphone.py         # Microphone module alias
+│   ├── gui/
+│   │   └── menu_bar.py           # Native macOS Status Bar app (rumps)
+│   ├── llm/
+│   │   └── llm.py                # Groq & Gemini LLM integration with tool calling
+│   ├── stt/
+│   │   └── whisper.py            # Faster-Whisper STT
+│   ├── tools/
+│   │   ├── browser_automation.py # Browser open URL tool
+│   │   ├── macos.py              # Open/Close macOS apps via osascript
+│   │   └── media.py              # Apple Music AppleScript controls
+│   └── tts/
+│       └── tts.py                # Pocket-TTS audio generation & playback
+├── requirements.txt              # Project dependencies
+└── README.md
+```
+
+---
 
 ## Requirements
 
+- macOS (Apple Silicon or Intel)
 - Python 3.10+
-- Microphone access on your machine
-- A Groq API key
+- Microphone & Speaker access
+- API Keys:
+  - Groq API Key
+  - Google Gemini API Key
 
-## Setup
+---
 
-1. Create and activate a virtual environment:
+## Setup & Configuration
+
+1. **Install dependencies:**
+
+   ```bash
+   pip3 install -r requirements.txt pocket-tts langchain langchain-groq langchain-google-genai rumps
+   ```
+
+2. **Configure API Keys:**
+
+   Create a `.env` file in the project root:
+
+   ```env
+   GROQ_API_KEY=your_groq_api_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+3. **Global CLI Setup (already configured):**
+
+   The commands are linked into `~/.local/bin`, which is on your `$PATH`:
+   - `whisper` ➔ Terminal voice assistant
+   - `whisper-bar` ➔ macOS Menu Bar app
+
+---
+
+## Running the Assistant
+
+### Option 1: Terminal Mode (`whisper`)
+
+Run from **any directory** in your terminal:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+whisper
 ```
 
-2. Install dependencies:
+* Speak into your microphone.
+* Say **`exit`** or press `Ctrl + C` to stop.
+
+---
+
+### Option 2: Native Menu Bar App (`whisper-bar`)
+
+Run in the background:
 
 ```bash
-pip install -r requirements.txt
+whisper-bar &
 ```
 
-3. Add your Groq API key in a `.env` file in the project root:
+* A **`🎙️`** icon will appear in your top macOS menu bar.
+* **Status Icons:**
+  - `🎙️` — Ready & Listening
+  - `🧠` — Transcribing / Thinking
+  - `🔊` — Speaking response
+  - `⏸️` — Paused
+* **Menu Controls:** Click the icon to Pause/Resume, view the last query heard, open the project folder, or Quit.
 
-```env
-GROQ_API_KEY=your_api_key_here
-```
+#### Launch Automatically on Mac Startup:
+1. Open **System Settings** > **General** > **Login Items**.
+2. Click **+** under *Open at Login*.
+3. Press `Cmd + Shift + G`, paste `/Users/suchayjoshi/Desktop/voice_assistant/run_gui.py`, and click **Add**.
 
-## Run the assistant
+---
 
-Start the voice assistant:
+## Example Voice Commands
 
-```bash
-python run.py
-```
+| What You Say | Assistant Action |
+| :--- | :--- |
+| *"Open Safari"* | Launches Safari on your Mac |
+| *"Close System Settings"* | Closes System Settings |
+| *"Play music"* | Resumes playback in Apple Music |
+| *"Play the album Abbey Road"* | Searches and plays Abbey Road in Apple Music |
+| *"Open github.com"* | Opens the website in your default browser |
+| *"What is the capital of France?"* | Streams conversational answer aloud |
+| *"Exit"* | Stops the assistant |
 
-Then:
-- speak into the microphone
-- the app will transcribe your speech
-- the model will generate a response
-- the assistant will speak the answer back
-- say `exit` to stop the program
-
-## Notes
-
-- This app is designed for local experimentation and development.
-- Audio and model performance may vary depending on system resources and hardware.
-- Some TTS and Whisper setups may require additional OS-level audio dependencies depending on your environment.
-
-## Example flow
-
-```text
-You: Hello
-Assistant: Hello! How can I help you today?
-```
+---
 
 ## License
 
-This project is provided as-is for learning and experimentation.
+This project is provided as-is for personal experimentation and macOS automation.
