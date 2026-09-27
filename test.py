@@ -88,7 +88,10 @@ async def main():
 
             print(chunk, end="", flush=True)
 
-            buffer += chunk
+            if isinstance(chunk, list):
+                buffer += ''.join(chunk)
+            else:
+                buffer += chunk
 
             if should_flush(buffer):
                 tts.speak(buffer.strip())

@@ -1,0 +1,54 @@
+#!/Users/suchayjoshi/Desktop/voice_assistant/.venv/bin/python3
+"""Convenient CLI entry point for the voice assistant.
+Running this script as `whisper` will start the microphone listening loop
+(and stream responses) exactly like the demo in `test.py`.
+
+Usage:
+    $ whisper   # make sure this file is on your $PATH or create an alias
+"""
+
+import os
+import sys
+
+# Ensure the project root is on PYTHONPATH so relative imports work
+project_root = os.path.abspath(os.path.dirname(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from app.audio.input import Microphone
+from app.llm.llm import LLM
+from app.tts.tts import TTS
+from app.stt.whisper import WhisperSTT
+
+def main():
+    microphone = Microphone(silence_duration=400)
+    llm = LLM()
+    tts = TTS()
+    whisper = WhisperSTT()
+
+    while True:
+        audio = microphone.record_until_silence()
+        if len(audio) == 0:
+            continue
+        text = whisper.transcribe(audio)
+        if not text:
+            continue
+        print("YOU:", text)
+        if text.lower().strip() == "exit":
+            print("Goodbye!")
+            break
+        # Stream LLM answer and speak when a sentence boundary is reached
+        buffer = ""
+        for chunk in llm.generate_answer(text):
+            print(chunk, end="", flush=True)
+            buffer += chunk
+            # Simple sentence detection – speak when we hit punctuation
+            if buffer and buffer[-1] in ".!?":
+                tts.speak(buffer.strip())
+                buffer = ""
+        if buffer:
+            tts.speak(buffer.strip())
+        print()
+
+if __name__ == "__main__":
+    main()
