@@ -1,7 +1,21 @@
+# Speech-to-Text
 faster-whisper
+
+# Audio I/O
 sounddevice
 numpy
-torch
-groq
-python-dotenv
 webrtcvad-wheels
+
+# Text-to-Speech
+pocket-tts
+
+# LLM & LangChain
+langchain
+langchain-core
+langchain-groq
+langchain-google-genai
+
+# Utilities
+python-dotenv
+torch
+pynput

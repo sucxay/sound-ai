@@ -1,4 +1,4 @@
-#!/Users/suchayjoshi/Desktop/voice_assistant/.venv/bin/python3
+#!/usr/bin/env python3
 """Convenient CLI entry point for the voice assistant.
 Running this script as `whisper` will start the microphone listening loop
 (and stream responses) exactly like the demo in `test.py`.
@@ -7,6 +7,7 @@ Usage:
     $ whisper   # make sure this file is on your $PATH or create an alias
 """
 
+import asyncio
 import os
 import sys
 
@@ -15,12 +16,16 @@ project_root = os.path.abspath(os.path.dirname(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Explicitly load .env from project root regardless of where CLI is invoked
+from dotenv import load_dotenv
+load_dotenv(os.path.join(project_root, ".env"))
+
 from app.audio.input import Microphone
 from app.llm.llm import LLM
 from app.tts.tts import TTS
 from app.stt.whisper import WhisperSTT
 
-def main():
+async def main():
     microphone = Microphone(silence_duration=400)
     llm = LLM()
     tts = TTS()
@@ -38,17 +43,23 @@ def main():
             print("Goodbye!")
             break
         # Stream LLM answer and speak when a sentence boundary is reached
+        print("ASSISTANT: ", end="", flush=True)
         buffer = ""
-        for chunk in llm.generate_answer(text):
+        async for chunk in llm.generate_answer(text):
             print(chunk, end="", flush=True)
-            buffer += chunk
+            if isinstance(chunk, list):
+                buffer += "".join(chunk)
+            else:
+                buffer += chunk
             # Simple sentence detection – speak when we hit punctuation
-            if buffer and buffer[-1] in ".!?":
+            if buffer and buffer[-1] in ".!?\n":
                 tts.speak(buffer.strip())
                 buffer = ""
-        if buffer:
+        if buffer.strip():
             tts.speak(buffer.strip())
+        tts.wait_until_done()
         print()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+
