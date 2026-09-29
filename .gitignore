@@ -3,5 +3,6 @@
 !.env.example
 .test.py
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .DS_Store

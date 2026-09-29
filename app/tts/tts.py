@@ -30,3 +30,9 @@ class TTS:
     def wait_until_done(self):
         """Blocks until all queued audio has finished playing."""
         self._audio_queue.join()
+
+    def shutdown(self):
+        """Drain remaining audio, stop the playback thread, and release resources."""
+        self.wait_until_done()
+        self._audio_queue.put(None)  # sentinel to exit _playback_worker
+        self._playback_thread.join(timeout=5)
