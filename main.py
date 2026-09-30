@@ -1,168 +1,82 @@
-"""
-Voice Assistant — main entry point.
+#!/usr/bin/env python3
+"""Voice Assistant — Keyboard-Activated Hotkey Entry Point.
 
-Listens for speech, transcribes via Whisper, generates a response with an LLM,
-and streams the reply back through a local TTS engine.
+Press the configured hotkey (default: CTRL + SPACE) from any application/window
+to activate the voice assistant microphone and start speaking.
 
-Exit methods:
-  • Say "exit", "quit", "stop", "goodbye", or "bye"
-  • Press 'q' at any time
-  • Press Ctrl+C
+Exit:
+  • Press Ctrl+C at any time
 """
 
-import asyncio
+import os
 import signal
 import sys
 import threading
+from dotenv import load_dotenv
 
-from pynput import keyboard
+# Ensure project root is in sys.path and .env is loaded
+project_root = os.path.abspath(os.path.dirname(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-from app.audio.input import Microphone
-from app.llm.llm import LLM
-from app.stt.whisper import WhisperSTT
-from app.tts.tts import TTS
+load_dotenv(os.path.join(project_root, ".env"))
 
-# ── Exit handling ────────────────────────────────────────────────────────────
+from app.core import AssistantState, KeyboardController, VoiceAssistant
 
-_quit_event = threading.Event()
-
-EXIT_PHRASES = frozenset({"exit", "quit", "stop", "goodbye", "bye"})
-
-
-def _request_quit() -> None:
-    """Signal all loops to stop."""
-    _quit_event.set()
+_shutdown_event = threading.Event()
 
 
-def _on_key_press(key: keyboard.Key) -> None:
-    """Keyboard listener callback — press 'q' to quit."""
-    try:
-        if key.char == "q":
-            _request_quit()
-    except AttributeError:
-        pass
-
-
-# ── TTS chunking ─────────────────────────────────────────────────────────────
-
-SENTENCE_ENDS = (".", "?", "!", "\n")
-CLAUSE_ENDS = (",", ";", ":")
-MIN_CHUNK_LEN = 30   # minimum chars before flushing on a clause boundary
-MAX_CHUNK_LEN = 120  # flush even without a boundary if buffer grows large
-
-
-def _should_flush(buf: str) -> bool:
-    """Return True when *buf* contains enough text to send to TTS."""
-    if not buf.strip():
-        return False
-    if buf[-1] in SENTENCE_ENDS:
-        return True
-    if len(buf) >= MIN_CHUNK_LEN and buf[-1] in CLAUSE_ENDS:
-        return True
-    if len(buf) >= MAX_CHUNK_LEN:
-        return True
-    return False
-
-
-# ── Core loop ─────────────────────────────────────────────────────────────────
-
-async def _run(
-    microphone: Microphone,
-    whisper: WhisperSTT,
-    llm: LLM,
-    tts: TTS,
-) -> None:
-    """Main listen → think → speak loop."""
-
-    while not _quit_event.is_set():
-        # 1. Listen
-        audio = microphone.record_until_silence()
-        if len(audio) == 0 or _quit_event.is_set():
-            continue
-
-        # 2. Transcribe
-        text = whisper.transcribe(audio)
-        if not text:
-            continue
-
-        print(f"\033[96m  YOU:\033[0m {text}")
-
-        # 3. Check for exit commands
-        if text.strip().lower() in EXIT_PHRASES:
-            print(f"\033[93m  ASSISTANT:\033[0m Goodbye! Have a great day.")
-            tts.speak("Goodbye! Have a great day.")
-            tts.wait_until_done()
-            _request_quit()
-            break
-
-        # 4. Generate & stream response
-        print("\033[93m  ASSISTANT:\033[0m ", end="", flush=True)
-
-        buffer = ""
-        async for chunk in llm.generate_answer(text):
-            if _quit_event.is_set():
-                break
-
-            # Normalize chunk to a plain string
-            fragment = "".join(chunk) if isinstance(chunk, list) else chunk
-            print(fragment, end="", flush=True)
-
-            buffer += fragment
-            if _should_flush(buffer):
-                tts.speak(buffer.strip())
-                buffer = ""
-
-        # Flush remaining text in the buffer
-        if buffer.strip() and not _quit_event.is_set():
-            tts.speak(buffer.strip())
-
-        # Wait for all queued audio to finish before listening again
-        tts.wait_until_done()
-        print()  # newline after streamed response
-
-
-# ── Bootstrap ─────────────────────────────────────────────────────────────────
-
-_BANNER = r"""
-╔══════════════════════════════════════════════╗
-║          🎙️  Voice Assistant Ready           ║
-║──────────────────────────────────────────────║
-║  Speak naturally — I'm listening.            ║
-║                                              ║
-║  Exit:  say "exit" / "quit" / "goodbye"      ║
-║         press 'q'  ·  Ctrl+C                 ║
-╚══════════════════════════════════════════════╝
-"""
+def _signal_handler(sig, frame):
+    """Handle interrupt signals for graceful termination."""
+    _shutdown_event.set()
 
 
 def main() -> None:
-    """Initialise components, run the assistant, and clean up on exit."""
+    # Register Ctrl+C / SIGINT and SIGTERM handlers
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
 
-    # Ctrl+C → graceful shutdown
-    signal.signal(signal.SIGINT, lambda *_: _request_quit())
+    print("\n⏳ Initializing Voice Assistant models (Whisper, LLM, TTS)...")
+    try:
+        assistant = VoiceAssistant()
+    except Exception as exc:
+        print(f"\n[FATAL] Failed to initialize Voice Assistant: {exc}")
+        sys.exit(1)
 
-    # Keyboard listener (non-blocking, daemon thread)
-    key_listener = keyboard.Listener(on_press=_on_key_press)
-    key_listener.daemon = True
-    key_listener.start()
+    # Initialize and start keyboard controller
+    keyboard_controller = KeyboardController(on_trigger=assistant.trigger_voice_input)
+    try:
+        keyboard_controller.start()
+    except Exception as exc:
+        print(f"\n[WARNING] Could not start global keyboard listener: {exc}")
+        print("Note: On macOS, Accessibility permission is required for global hotkeys.")
+        print("Go to: System Settings -> Privacy & Security -> Accessibility -> Allow your Terminal/IDE.")
 
-    # Initialise components (may take a moment on first run)
-    print("\n  ⏳ Loading models — this may take a moment …")
-    microphone = Microphone()
-    llm = LLM()
-    tts = TTS()
-    whisper = WhisperSTT()
-    print(_BANNER)
+    hotkey_display = keyboard_controller.hotkey_str.upper().replace("<", "").replace(">", "").replace("+", " + ")
+
+    banner = f"""
+╔══════════════════════════════════════════════════════════════╗
+║               🎙️  Voice Assistant (Hotkey Mode)               ║
+║──────────────────────────────────────────────────────────────║
+║  Hotkey:  {hotkey_display:<49}║
+║  Action:  Press hotkey -> Speak -> Auto-reply aloud          ║
+║  Exit:    Press Ctrl+C to terminate                          ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+    print(banner)
+    print(f"[{AssistantState.IDLE.value}] Waiting for hotkey...")
 
     try:
-        asyncio.run(_run(microphone, whisper, llm, tts))
+        # Keep the main thread alive until shutdown signal is received
+        while not _shutdown_event.is_set():
+            _shutdown_event.wait(timeout=0.5)
     except KeyboardInterrupt:
         pass
     finally:
-        print("\n  👋 Shutting down …")
-        key_listener.stop()
-        tts.shutdown()
-        print("  ✅ Done. See you next time!\n")
+        print("\n\n👋 Shutting down Voice Assistant...")
+        keyboard_controller.stop()
+        assistant.shutdown()
+        print("✅ Shutdown complete. Goodbye!\n")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ Available as both a **global Terminal CLI command (`whisper`)** and a **native m
 
 ## Features
 
+- **Keyboard-Activated Hotkey Mode (`CTRL + SPACE`)**: Trigger microphone recording from any application with state machine tracking (`IDLE`, `LISTENING`, `PROCESSING`, `SPEAKING`).
 - **Global Terminal Command (`whisper`)**: Start the voice assistant from any directory in your terminal.
 - **Native macOS Menu Bar App (`whisper-bar`)**: Sits in your top menu bar with live visual status icons (`🎙️` listening, `🧠` transcribing, `🔊` speaking, `⏸️` paused) and pause/resume controls.
 - **macOS System Automation Tools**:
